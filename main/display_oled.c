@@ -21,7 +21,9 @@
 #define OLED_PAGES           8
 #define OLED_TASK_STACK_SIZE 4096
 #define OLED_TASK_PRIORITY   2
-#define OLED_UPDATE_MS       1000
+#define OLED_UPDATE_MS       100
+#define OLED_MARQUEE_STEP_PX 1
+#define OLED_RETRY_MS        5000
 #define OLED_DOG_INTERVAL_MS 30000
 #define OLED_DOG_DURATION_MS 6000
 #define OLED_DOG_FRAME_MS    500
@@ -29,7 +31,9 @@
 static const char *TAG = "display_oled";
 static TaskHandle_t s_oled_task;
 static bool s_oled_ready;
+static bool s_oled_disconnect_logged;
 static uint8_t s_oled_address = APP_OLED_I2C_ADDRESS;
+static int s_marquee_offset_px;
 
 /* ── Framebuffer ────────────────────────────────────────────────────────── */
 
@@ -62,9 +66,12 @@ static esp_err_t oled_cmd(uint8_t cmd)
 static esp_err_t oled_set_cursor(int page, int col)
 {
     col += APP_OLED_COLUMN_OFFSET;
-    ESP_RETURN_ON_ERROR(oled_cmd((uint8_t)(0xB0 | (page & 0x07))), TAG, "page");
-    ESP_RETURN_ON_ERROR(oled_cmd((uint8_t)(0x00 | (col & 0x0F))),  TAG, "col_lo");
-    ESP_RETURN_ON_ERROR(oled_cmd((uint8_t)(0x10 | ((col >> 4) & 0x0F))), TAG, "col_hi");
+    esp_err_t err = oled_cmd((uint8_t)(0xB0 | (page & 0x07)));
+    if (err != ESP_OK) return err;
+    err = oled_cmd((uint8_t)(0x00 | (col & 0x0F)));
+    if (err != ESP_OK) return err;
+    err = oled_cmd((uint8_t)(0x10 | ((col >> 4) & 0x0F)));
+    if (err != ESP_OK) return err;
     return ESP_OK;
 }
 
@@ -72,8 +79,10 @@ static esp_err_t oled_clear_hw(void)
 {
     uint8_t z[OLED_WIDTH] = {0};
     for (int p = 0; p < OLED_PAGES; p++) {
-        ESP_RETURN_ON_ERROR(oled_set_cursor(p, 0), TAG, "cur");
-        ESP_RETURN_ON_ERROR(oled_write(0x40, z, sizeof(z)), TAG, "clr");
+        esp_err_t err = oled_set_cursor(p, 0);
+        if (err != ESP_OK) return err;
+        err = oled_write(0x40, z, sizeof(z));
+        if (err != ESP_OK) return err;
     }
     return ESP_OK;
 }
@@ -186,17 +195,36 @@ static void fb_fill_ellipse(int cx, int cy, int rx, int ry)
     }
 }
 
-static void fb_invert_page(int page)
+static void oled_mark_disconnected(esp_err_t err)
 {
-    for (int x = 0; x < OLED_WIDTH; x++) s_fb[page][x] ^= 0xFF;
+    s_oled_ready = false;
+    if (!s_oled_disconnect_logged) {
+        s_oled_disconnect_logged = true;
+        ESP_LOGW(TAG, "OLED desconectada o sin respuesta I2C: %s. Reintentando cada %d ms",
+            esp_err_to_name(err),
+            OLED_RETRY_MS);
+    }
 }
 
-static void fb_flush(void)
+static esp_err_t fb_flush(void)
 {
-    for (int p = 0; p < OLED_PAGES; p++) {
-        if (oled_set_cursor(p, 0) == ESP_OK)
-            oled_write(0x40, s_fb[p], OLED_WIDTH);
+    if (!s_oled_ready) {
+        return ESP_ERR_INVALID_STATE;
     }
+
+    for (int p = 0; p < OLED_PAGES; p++) {
+        esp_err_t err = oled_set_cursor(p, 0);
+        if (err != ESP_OK) {
+            oled_mark_disconnected(err);
+            return err;
+        }
+        err = oled_write(0x40, s_fb[p], OLED_WIDTH);
+        if (err != ESP_OK) {
+            oled_mark_disconnected(err);
+            return err;
+        }
+    }
+    return ESP_OK;
 }
 
 /* ── Font ───────────────────────────────────────────────────────────────── */
@@ -257,13 +285,6 @@ static const uint8_t *font_for_char(char c)
     return s_font[0].col;
 }
 
-static int fb_text_width(const char *t)
-{
-    int n = 0;
-    while (*t++) n++;
-    return n * 6;
-}
-
 static void fb_text(int x, int y, const char *text)
 {
     while (*text && x + 5 < OLED_WIDTH) {
@@ -277,11 +298,35 @@ static void fb_text(int x, int y, const char *text)
     }
 }
 
-static void fb_text_centered(int y, const char *text)
+static int fb_text_width(const char *text)
 {
-    int x = (OLED_WIDTH - fb_text_width(text)) / 2;
-    if (x < 0) x = 0;
-    fb_text(x, y, text);
+    return (int)strlen(text) * 6;
+}
+
+static void fb_text_scaled(int x, int y, const char *text, int xscale, int yscale)
+{
+    if (xscale < 1) xscale = 1;
+    if (yscale < 1) yscale = 1;
+
+    while (*text && x + (5 * xscale) < OLED_WIDTH) {
+        const uint8_t *g = font_for_char(*text++);
+        for (int col = 0; col < 5; col++) {
+            for (int bit = 0; bit < 8; bit++) {
+                if ((g[col] & (1u << bit)) == 0) continue;
+                for (int dx = 0; dx < xscale; dx++) {
+                    for (int dy = 0; dy < yscale; dy++) {
+                        fb_pixel(x + col * xscale + dx, y + bit * yscale + dy);
+                    }
+                }
+            }
+        }
+        x += 6 * xscale;
+    }
+}
+
+static void fb_text_tall(int x, int y, const char *text)
+{
+    fb_text_scaled(x, y, text, 1, 2);
 }
 
 /* ── Dog face ───────────────────────────────────────────────────────────── */
@@ -304,20 +349,20 @@ static void oled_draw_dog(int frame)
     fb_ellipse(64, 37, 27, 20);   /* double outline for thickness */
 
     /* ── left ear ─────────────────────────────────────────────────── */
-    fb_line(36, 25,  22,  2);     /* outer left edge */
-    fb_line(22,  2,  46, 14);     /* inner slant */
-    fb_line(46, 14,  40, 23);     /* connects to head */
+    fb_line(36, 25, 22, 2);
+    fb_line(22, 2, 46, 14);
+    fb_line(46, 14, 40, 23);
     /* inner fur */
-    fb_line(38, 23,  28,  8);
-    fb_line(28,  8,  42, 16);
+    fb_line(38, 23, 28, 8);
+    fb_line(28, 8, 42, 16);
 
     /* ── right ear ────────────────────────────────────────────────── */
-    fb_line(92, 25, 106,  2);
-    fb_line(106,  2,  82, 14);
-    fb_line(82, 14,  88, 23);
+    fb_line(92, 25, 106, 2);
+    fb_line(106, 2, 82, 14);
+    fb_line(82, 14, 88, 23);
     /* inner fur */
-    fb_line(90, 23, 100,  8);
-    fb_line(100,  8,  86, 16);
+    fb_line(90, 23, 100, 8);
+    fb_line(100, 8, 86, 16);
 
     /* ── eyebrows (alert, slightly raised) ───────────────────────── */
     fb_line(44, 21, 57, 20);
@@ -425,64 +470,55 @@ static void oled_draw_status(bool wifi_ok, bool internet_ok, bool rebooting)
     fb_clear();
 
     /* ── Row 0 (y=0-7): inverted title bar ───────────────────────── */
-    fb_fill_rect(0, 0, 128, 8);
-    fb_text_centered(0, "PERRO GUARDIAN WIFI");
-    fb_invert_page(0);
+    char marquee[64] = {0};
+    snprintf(marquee, sizeof(marquee), "PERRO_GUARDIAN_WIFI     IP:%s     ", ip[0] ? ip : "0.0.0.0");
+    int marquee_width = fb_text_width(marquee);
+    if (marquee_width <= 0) marquee_width = OLED_WIDTH;
+    for (int x = -s_marquee_offset_px; x < OLED_WIDTH; x += marquee_width) {
+        fb_text(x, 0, marquee);
+    }
+    s_marquee_offset_px = (s_marquee_offset_px + OLED_MARQUEE_STEP_PX) % marquee_width;
 
     /* ── Separator y=8 ───────────────────────────────────────────── */
-    fb_hline(0, 127, 8);
+    fb_hline(0, 127, 9);
 
     /* ── Row 1 (y=10): WiFi ──────────────────────────────────────── */
     if (wifi_ok) {
-        char short_ssid[14] = {0};
-        strncpy(short_ssid, ssid[0] ? ssid : "???", 13);
+        char short_ssid[10] = {0};
+        strncpy(short_ssid, ssid[0] ? ssid : "???", 9);
         char wline[20] = {0};
-        snprintf(wline, sizeof(wline), "W:%s", short_ssid);
-        fb_text(2, 10, wline);
-        draw_signal_bars(110, 17, rssi);
+        snprintf(wline, sizeof(wline), "WIFI:%s", short_ssid);
+        fb_text_tall(2, 12, wline);
+        draw_signal_bars(110, 25, rssi);
     } else {
-        fb_text(2, 10, "W: DESCONECTADO");
+        fb_text_tall(2, 12, "WIFI:OFF");
         /* X bars */
-        for (int i = 0; i < 4; i++) fb_rect(110+i*4, 10+(3-i)*2, 3, (i+1)*2+1);
+        for (int i = 0; i < 4; i++) fb_rect(110+i*4, 18+(3-i)*2, 3, (i+1)*2+1);
     }
 
     /* ── Separator y=19 ──────────────────────────────────────────── */
-    fb_hline(0, 127, 19);
+    fb_hline(0, 127, 28);
 
     /* ── Row 2 (y=21): Internet ──────────────────────────────────── */
-    draw_inet_icon(2, 21, internet_ok);
-    fb_text(14, 22, internet_ok ? "INTERNET: OK" : "INTERNET: FAIL");
+    draw_inet_icon(114, 34, internet_ok);
+    fb_text_tall(2, 31, internet_ok ? "INTERNET:OK" : "INTERNET:FAIL");
 
     /* ── Separator y=31 ──────────────────────────────────────────── */
-    fb_hline(0, 127, 31);
+    fb_hline(0, 127, 47);
 
     /* ── Row 3 (y=33): Modem / Mode ──────────────────────────────── */
     if (rebooting) {
-        fb_text(2, 33, "** REINICIANDO **");
+        fb_text_tall(2, 48, "REINICIO");
     } else {
-        fb_text(2, 33, "MODEM:OK");
-        fb_text(74, 33, APP_TEST_MODE ? "TEST" : "LIVE");
+        fb_text_tall(2, 48, "MODEM:OK");
+        fb_text(82, 54, APP_TEST_MODE ? "TEST" : "LIVE");
     }
 
     /* ── Separator y=43 ──────────────────────────────────────────── */
-    fb_hline(0, 127, 43);
+    /* La IP queda chica para que entren todas las lineas principales. */
 
     /* ── Row 4 (y=45): IP address ────────────────────────────────── */
-    char ip_line[22] = {0};
-    snprintf(ip_line, sizeof(ip_line), "IP: %s", ip[0] ? ip : "0.0.0.0");
-    fb_text(2, 45, ip_line);
-
     /* ── Separator y=55 ──────────────────────────────────────────── */
-    fb_hline(0, 127, 55);
-
-    /* ── Row 5 (y=57): RSSI or status info ───────────────────────── */
-    if (wifi_ok) {
-        char rline[20] = {0};
-        snprintf(rline, sizeof(rline), "RSSI: %d dBm", rssi);
-        fb_text(2, 57, rline);
-    } else {
-        fb_text(2, 57, "Sin red WiFi");
-    }
 
     /* ── Side borders ────────────────────────────────────────────── */
     fb_vline(0,   9, 63);
@@ -502,7 +538,8 @@ static esp_err_t oled_init_at_address(uint8_t address)
         0xD9,0x22,0xDB,0x35,0xA4,0xA6,0xAF,
     };
     for (size_t i = 0; i < sizeof(cmds); i++) {
-        ESP_RETURN_ON_ERROR(oled_cmd(cmds[i]), TAG, "init");
+        esp_err_t err = oled_cmd(cmds[i]);
+        if (err != ESP_OK) return err;
     }
     return oled_clear_hw();
 }
@@ -528,26 +565,60 @@ static esp_err_t oled_hw_init(void)
     return oled_init_at_address(fallback);
 }
 
+static esp_err_t oled_recover(void)
+{
+    esp_err_t err = oled_init_at_address(s_oled_address);
+    if (err != ESP_OK) {
+        err = oled_init_at_address(APP_OLED_I2C_ADDRESS);
+    }
+    if (err != ESP_OK) {
+        uint8_t fallback = APP_OLED_I2C_ADDRESS == 0x3C ? 0x3D : 0x3C;
+        err = oled_init_at_address(fallback);
+    }
+
+    if (err == ESP_OK) {
+        s_oled_ready = true;
+        s_oled_disconnect_logged = false;
+        ESP_LOGI(TAG, "OLED recuperada en addr 0x%02X", s_oled_address);
+    }
+    return err;
+}
+
 /* ── OLED task ──────────────────────────────────────────────────────────── */
 
 static void oled_task(void *arg)
 {
     (void)arg;
     TickType_t last_dog = xTaskGetTickCount();
+    TickType_t next_oled_retry = 0;
     int dog_frame = 0;
 
     while (true) {
         TickType_t now = xTaskGetTickCount();
 
+        if (!s_oled_ready) {
+            if (now >= next_oled_retry) {
+                oled_recover();
+                next_oled_retry = xTaskGetTickCount() + pdMS_TO_TICKS(OLED_RETRY_MS);
+            }
+            vTaskDelay(pdMS_TO_TICKS(250));
+            continue;
+        }
+
         if ((now - last_dog) >= pdMS_TO_TICKS(OLED_DOG_INTERVAL_MS)) {
             TickType_t dog_until = now + pdMS_TO_TICKS(OLED_DOG_DURATION_MS);
             dog_frame = 0;
-            while (xTaskGetTickCount() < dog_until) {
+            while (s_oled_ready && xTaskGetTickCount() < dog_until) {
                 oled_draw_dog(dog_frame & 3);
                 dog_frame++;
                 vTaskDelay(pdMS_TO_TICKS(OLED_DOG_FRAME_MS));
             }
-            oled_clear_hw();
+            if (s_oled_ready) {
+                esp_err_t err = oled_clear_hw();
+                if (err != ESP_OK) {
+                    oled_mark_disconnected(err);
+                }
+            }
             last_dog = xTaskGetTickCount();
         }
 

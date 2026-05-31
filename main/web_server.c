@@ -34,47 +34,47 @@ static const char INDEX_HTML[] =
 "<!doctype html><html lang='es'><head><meta name='viewport' content='width=device-width,initial-scale=1'>"
 "<title>Perro Guardian WiFi</title><style>"
 "*{box-sizing:border-box;margin:0;padding:0}"
-":root{--bg:#0f1923;--s1:#152032;--s2:#1c2e42;--acc:#38bdf8;--ok:#22c55e;--bad:#ef4444;--warn:#f59e0b;--tx:#e2e8f0;--tx2:#64748b;font-family:'Segoe UI',Arial,sans-serif;color:var(--tx);background:var(--bg)}"
+":root{--bg:#121a24;--s1:#182333;--s2:#223246;--acc:#7dd3fc;--ok:#86efac;--bad:#fca5a5;--warn:#fcd34d;--tx:#e5edf6;--tx2:#91a4bb;font-family:'Segoe UI',Arial,sans-serif;color:var(--tx);background:var(--bg)}"
 "body{min-height:100vh}"
-"header{background:linear-gradient(135deg,#0c1f35,#1a3a5c);padding:14px 16px;border-bottom:2px solid rgba(56,189,248,.2)}"
+"header{background:linear-gradient(135deg,#13263a,#20364d);padding:14px 16px;border-bottom:1px solid rgba(125,211,252,.18)}"
 ".hd{display:flex;align-items:center;gap:12px;max-width:760px;margin:auto}"
-".logo{font-size:38px;line-height:1;filter:drop-shadow(0 2px 6px rgba(56,189,248,.4))}"
-".htx h1{font-size:20px;font-weight:800;color:#38bdf8;letter-spacing:-.3px}.htx p{font-size:11px;color:var(--tx2);margin-top:2px}"
+".logo{font-size:38px;line-height:1;filter:drop-shadow(0 2px 6px rgba(125,211,252,.24))}"
+".htx h1{font-size:20px;font-weight:800;color:var(--acc);letter-spacing:-.3px}.htx p{font-size:11px;color:var(--tx2);margin-top:2px}"
 ".dot{width:11px;height:11px;border-radius:50%;background:var(--ok);box-shadow:0 0 10px var(--ok);margin-left:auto;transition:background .5s,box-shadow .5s;animation:pulse 2s infinite}"
 "@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}"
-".tabs{display:flex;gap:4px;overflow-x:auto;padding:10px 12px;background:rgba(0,0,0,.35);border-bottom:1px solid rgba(255,255,255,.05)}"
+".tabs{display:flex;gap:4px;overflow-x:auto;padding:10px 12px;background:rgba(5,11,18,.35);border-bottom:1px solid rgba(255,255,255,.06)}"
 ".tabs button{border:0;background:transparent;color:var(--tx2);padding:8px 13px;border-radius:20px;font-weight:600;font-size:13px;white-space:nowrap;cursor:pointer;transition:all .15s}"
-".tabs button.active{background:var(--acc);color:#0f1923;box-shadow:0 2px 10px rgba(56,189,248,.35)}"
+".tabs button.active{background:#93c5fd;color:#102033;box-shadow:0 2px 10px rgba(147,197,253,.22)}"
 ".tabs button:hover:not(.active){background:rgba(255,255,255,.07);color:var(--tx)}"
 "main{padding:12px;max-width:760px;margin:auto}.page{display:none}.page.active{display:block}"
 ".grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(138px,1fr));gap:10px}"
 ".card{background:var(--s1);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px;transition:border-color .2s,transform .1s}"
 ".card:hover{transform:translateY(-1px)}"
-".card.ok-c{border-color:rgba(34,197,94,.4);background:linear-gradient(150deg,#0d2216,var(--s1))}"
-".card.bad-c{border-color:rgba(239,68,68,.4);background:linear-gradient(150deg,#260d0d,var(--s1))}"
-".card.warn-c{border-color:rgba(245,158,11,.4);background:linear-gradient(150deg,#261a08,var(--s1))}"
+".card.ok-c{border-color:rgba(134,239,172,.28);background:linear-gradient(150deg,#13271c,var(--s1))}"
+".card.bad-c{border-color:rgba(252,165,165,.28);background:linear-gradient(150deg,#2b171b,var(--s1))}"
+".card.warn-c{border-color:rgba(252,211,77,.28);background:linear-gradient(150deg,#2a2414,var(--s1))}"
 ".card.ok-c .cv{color:var(--ok)}.card.bad-c .cv{color:var(--bad)}.card.warn-c .cv{color:var(--warn)}"
 ".ci{font-size:26px;margin-bottom:6px}.cv{font-size:17px;font-weight:700;color:var(--acc);margin-top:2px;word-break:break-all}"
 ".cl{font-size:10px;color:var(--tx2);text-transform:uppercase;letter-spacing:.8px;margin-top:5px}"
 ".sig{display:inline-flex;align-items:flex-end;gap:2px;height:14px;vertical-align:middle;margin-left:6px}"
 ".sb{background:rgba(255,255,255,.15);border-radius:2px;width:4px}.sb.on{background:var(--ok)}"
 "button,input{font-size:15px}"
-"button{padding:11px 14px;margin:4px 0;border:0;border-radius:8px;background:var(--acc);color:#0f1923;font-weight:700;cursor:pointer;transition:filter .1s,transform .08s;box-shadow:0 2px 8px rgba(56,189,248,.25)}"
+"button{padding:11px 14px;margin:4px 0;border:0;border-radius:8px;background:#93c5fd;color:#102033;font-weight:700;cursor:pointer;transition:filter .1s,transform .08s;box-shadow:0 2px 8px rgba(147,197,253,.18)}"
 "button:hover{filter:brightness(1.1)}button:active,button.pressed{transform:scale(.97);filter:brightness(.82)}"
 "button:disabled{background:#253547;color:#3d5568;cursor:wait;filter:none;box-shadow:none}"
 "button.working::after{content:' ⏳'}"
-"button.danger{background:#dc2626;box-shadow:0 2px 8px rgba(220,38,38,.3);color:#fff}"
-"button.secondary{background:#334155;box-shadow:none;color:var(--tx)}"
+"button.danger{background:#b91c1c;box-shadow:0 2px 8px rgba(185,28,28,.18);color:#fff}"
+"button.secondary{background:#3a4a60;box-shadow:none;color:var(--tx)}"
 "input{width:100%;padding:10px;margin:4px 0 10px;border:1px solid rgba(255,255,255,.1);border-radius:8px;background:var(--s2);color:var(--tx)}"
 "label{display:block;font-size:11px;font-weight:600;color:var(--tx2);margin-top:8px;text-transform:uppercase;letter-spacing:.5px}"
 ".row{display:flex;gap:8px;flex-wrap:wrap}.row button{flex:1;min-width:130px}"
-"pre{white-space:pre-wrap;background:#060e18;color:#7dd3fc;border-radius:10px;padding:12px;overflow:auto;font-size:12px;border:1px solid rgba(56,189,248,.12);margin-top:10px}"
-".hint{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);padding:10px;border-radius:8px;font-size:13px;color:#fbbf24;margin:8px 0}"
+"pre{white-space:pre-wrap;background:#0d1520;color:#bae6fd;border-radius:10px;padding:12px;overflow:auto;font-size:12px;border:1px solid rgba(125,211,252,.12);margin-top:10px}"
+".hint{background:rgba(252,211,77,.08);border:1px solid rgba(252,211,77,.22);padding:10px;border-radius:8px;font-size:13px;color:#fde68a;margin:8px 0}"
 ".sect{background:var(--s1);border-radius:14px;padding:14px;margin-bottom:10px;border:1px solid rgba(255,255,255,.07)}"
 "h2{font-size:15px;font-weight:700;color:var(--acc);margin-bottom:12px}"
-".toast{position:fixed;left:12px;right:12px;bottom:14px;background:#1a2e42;color:var(--tx);padding:13px;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.6);z-index:9;text-align:center;font-weight:700;border:1px solid rgba(255,255,255,.1)}"
-".toast.okt{background:#14532d;border-color:rgba(34,197,94,.4);color:#86efac}"
-".toast.err{background:#7f1d1d;border-color:rgba(239,68,68,.4);color:#fca5a5}"
+".toast{position:fixed;left:12px;right:12px;bottom:14px;background:#20364d;color:var(--tx);padding:13px;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.45);z-index:9;text-align:center;font-weight:700;border:1px solid rgba(255,255,255,.1)}"
+".toast.okt{background:#16442b;border-color:rgba(134,239,172,.28);color:#bbf7d0}"
+".toast.err{background:#5f1f24;border-color:rgba(252,165,165,.28);color:#fecaca}"
 "</style></head><body>"
 "<header><div class='hd'>"
 "<span class='logo'>&#x1F415;</span>"
@@ -126,7 +126,7 @@ static const char INDEX_HTML[] =
 "</div></section>"
 "</main>"
 "<script>"
-"const pages=['dash','actions','config','wifi','telegram','logs'];"
+"const pages=['dash','telegram','actions','config','wifi','logs'];"
 "const tabIx={dash:'&#x1F4CA;',actions:'&#x26A1;',config:'&#x2699;&#xFE0F;',wifi:'&#x1F4F6;',telegram:'&#x1F4E8;',logs:'&#x1F4CB;'};"
 "let stateTimer=null;"
 "function tab(id){"
@@ -263,6 +263,20 @@ static esp_err_t root_get_handler(httpd_req_t *req)
     return httpd_resp_send(req, INDEX_HTML, HTTPD_RESP_USE_STRLEN);
 }
 
+static esp_err_t captive_get_handler(httpd_req_t *req)
+{
+    httpd_resp_set_type(req, "text/html");
+    return httpd_resp_send(req, INDEX_HTML, HTTPD_RESP_USE_STRLEN);
+}
+
+static esp_err_t captive_redirect_handler(httpd_req_t *req)
+{
+    httpd_resp_set_status(req, "302 Found");
+    httpd_resp_set_hdr(req, "Location", "http://192.168.4.1/");
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+    return httpd_resp_sendstr(req, "");
+}
+
 static esp_err_t status_get_handler(httpd_req_t *req)
 {
     char ssid[33] = {0};
@@ -380,16 +394,45 @@ static esp_err_t command_post_handler(httpd_req_t *req)
 
 static esp_err_t wifi_scan_get_handler(httpd_req_t *req)
 {
-    wifi_scan_config_t scan_config = {0};
-    esp_err_t err = esp_wifi_scan_start(&scan_config, true);
+    wifi_mode_t mode = WIFI_MODE_NULL;
+    esp_err_t err = esp_wifi_get_mode(&mode);
     if (err != ESP_OK) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, esp_err_to_name(err));
+        return err;
+    }
+
+    if (mode == WIFI_MODE_AP) {
+        err = esp_wifi_set_mode(WIFI_MODE_APSTA);
+        if (err != ESP_OK) {
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, esp_err_to_name(err));
+            return err;
+        }
+    } else if (mode != WIFI_MODE_STA && mode != WIFI_MODE_APSTA) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "WiFi STA no disponible para escanear");
+        return ESP_FAIL;
+    }
+
+    wifi_scan_config_t scan_config = {0};
+    scan_config.scan_type = WIFI_SCAN_TYPE_ACTIVE;
+    scan_config.show_hidden = false;
+    scan_config.scan_time.active.min = 80;
+    scan_config.scan_time.active.max = 180;
+
+    err = esp_wifi_scan_start(&scan_config, true);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Escaneo WiFi fallo: %s", esp_err_to_name(err));
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, esp_err_to_name(err));
         return err;
     }
 
     uint16_t count = WEB_WIFI_SCAN_MAX;
     wifi_ap_record_t records[WEB_WIFI_SCAN_MAX] = {0};
-    esp_wifi_scan_get_ap_records(&count, records);
+    err = esp_wifi_scan_get_ap_records(&count, records);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "No se pudieron leer resultados WiFi: %s", esp_err_to_name(err));
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, esp_err_to_name(err));
+        return err;
+    }
 
     char json[768] = {0};
     size_t written = strlcpy(json, "{\"networks\":[", sizeof(json));
@@ -531,7 +574,7 @@ esp_err_t web_server_start(void)
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.server_port = 80;
     config.lru_purge_enable = true;
-    config.max_uri_handlers = 14;
+    config.max_uri_handlers = 24;
     config.uri_match_fn = httpd_uri_match_wildcard;
 
     ESP_RETURN_ON_ERROR(httpd_start(&s_server, &config), TAG, "httpd_start fallo");
@@ -546,6 +589,14 @@ esp_err_t web_server_start(void)
     ESP_RETURN_ON_ERROR(register_uri(s_server, "/api/telegram/config", HTTP_GET, telegram_config_get_handler), TAG, "telegram get");
     ESP_RETURN_ON_ERROR(register_uri(s_server, "/api/telegram/config", HTTP_POST, telegram_config_post_handler), TAG, "telegram post");
     ESP_RETURN_ON_ERROR(register_uri(s_server, "/api/telegram/test", HTTP_POST, telegram_test_post_handler), TAG, "telegram test");
+    ESP_RETURN_ON_ERROR(register_uri(s_server, "/generate_204", HTTP_GET, captive_redirect_handler), TAG, "android captive");
+    ESP_RETURN_ON_ERROR(register_uri(s_server, "/gen_204", HTTP_GET, captive_redirect_handler), TAG, "android captive gen");
+    ESP_RETURN_ON_ERROR(register_uri(s_server, "/hotspot-detect.html", HTTP_GET, captive_redirect_handler), TAG, "ios captive");
+    ESP_RETURN_ON_ERROR(register_uri(s_server, "/library/test/success.html", HTTP_GET, captive_redirect_handler), TAG, "ios captive success");
+    ESP_RETURN_ON_ERROR(register_uri(s_server, "/connecttest.txt", HTTP_GET, captive_redirect_handler), TAG, "windows captive");
+    ESP_RETURN_ON_ERROR(register_uri(s_server, "/ncsi.txt", HTTP_GET, captive_redirect_handler), TAG, "windows ncsi");
+    ESP_RETURN_ON_ERROR(register_uri(s_server, "/redirect", HTTP_GET, captive_redirect_handler), TAG, "windows redirect");
+    ESP_RETURN_ON_ERROR(register_uri(s_server, "/*", HTTP_GET, captive_get_handler), TAG, "captive wildcard");
 
     ESP_LOGI(TAG, "Servidor web iniciado en puerto 80");
     return ESP_OK;
