@@ -1,5 +1,6 @@
 #include "wifi_manager.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #include "esp_check.h"
@@ -8,6 +9,7 @@
 #include "esp_netif.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
+#include "lwip/ip4_addr.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 
@@ -25,6 +27,8 @@ static esp_timer_handle_t reconnect_timer;
 static int reconnect_attempts;
 static int last_disconnect_reason;
 static bool auth_failure_seen;
+static esp_netif_t *sta_netif;
+static char current_ssid[WIFI_CREDENTIALS_MAX_SSID_LEN + 1];
 
 static const char *disconnect_reason_name(int reason)
 {
@@ -153,7 +157,7 @@ esp_err_t wifi_manager_start(void)
 
         ESP_RETURN_ON_ERROR(esp_netif_init(), TAG, "esp_netif_init fallo");
         ESP_RETURN_ON_ERROR(esp_event_loop_create_default(), TAG, "esp_event_loop_create_default fallo");
-        esp_netif_create_default_wifi_sta();
+        sta_netif = esp_netif_create_default_wifi_sta();
 
         wifi_init_config_t init_config = WIFI_INIT_CONFIG_DEFAULT();
         ESP_RETURN_ON_ERROR(esp_wifi_init(&init_config), TAG, "esp_wifi_init fallo");
@@ -188,6 +192,7 @@ esp_err_t wifi_manager_start(void)
     wifi_config_t wifi_config = {0};
     strlcpy((char *)wifi_config.sta.ssid, ssid, sizeof(wifi_config.sta.ssid));
     strlcpy((char *)wifi_config.sta.password, password, sizeof(wifi_config.sta.password));
+    strlcpy(current_ssid, ssid, sizeof(current_ssid));
     /* Umbral permisivo: acepta redes abiertas, WPA2 y WPA3. */
     wifi_config.sta.threshold.authmode = WIFI_AUTH_OPEN;
     wifi_config.sta.sae_pwe_h2e = WPA3_SAE_PWE_BOTH;
@@ -238,4 +243,32 @@ bool wifi_manager_last_disconnect_was_auth_failure(void)
 bool wifi_manager_auth_failure_seen(void)
 {
     return auth_failure_seen;
+}
+
+esp_err_t wifi_manager_get_status(char *ssid, size_t ssid_len, char *ip, size_t ip_len, int *rssi)
+{
+    if (ssid != NULL && ssid_len > 0) {
+        strlcpy(ssid, current_ssid, ssid_len);
+    }
+
+    if (ip != NULL && ip_len > 0) {
+        strlcpy(ip, "0.0.0.0", ip_len);
+        if (sta_netif != NULL) {
+            esp_netif_ip_info_t ip_info;
+            if (esp_netif_get_ip_info(sta_netif, &ip_info) == ESP_OK) {
+                snprintf(ip, ip_len, IPSTR, IP2STR(&ip_info.ip));
+            }
+        }
+    }
+
+    if (rssi != NULL) {
+        wifi_ap_record_t ap_info = {0};
+        if (wifi_manager_is_connected() && esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK) {
+            *rssi = ap_info.rssi;
+        } else {
+            *rssi = 0;
+        }
+    }
+
+    return ESP_OK;
 }

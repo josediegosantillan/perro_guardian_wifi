@@ -1,6 +1,7 @@
 #include "display_oled.h"
 
 #include <stdbool.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "driver/gpio.h"
@@ -12,6 +13,7 @@
 
 #include "app_config.h"
 #include "app_state.h"
+#include "wifi_manager.h"
 
 #define OLED_I2C_PORT I2C_NUM_0
 #define OLED_WIDTH 128
@@ -19,6 +21,8 @@
 #define OLED_TASK_STACK_SIZE 3072
 #define OLED_TASK_PRIORITY 2
 #define OLED_UPDATE_MS 1000
+#define OLED_DOG_INTERVAL_MS 30000
+#define OLED_DOG_DURATION_MS 5000
 
 static const char *TAG = "display_oled";
 static TaskHandle_t s_oled_task;
@@ -33,7 +37,9 @@ typedef struct {
 static const font_char_t font[] = {
     {' ', {0x00, 0x00, 0x00, 0x00, 0x00}},
     {'-', {0x08, 0x08, 0x08, 0x08, 0x08}},
+    {'_', {0x40, 0x40, 0x40, 0x40, 0x40}},
     {':', {0x00, 0x36, 0x36, 0x00, 0x00}},
+    {'.', {0x00, 0x60, 0x60, 0x00, 0x00}},
     {'0', {0x3e, 0x51, 0x49, 0x45, 0x3e}},
     {'1', {0x00, 0x42, 0x7f, 0x40, 0x00}},
     {'2', {0x42, 0x61, 0x51, 0x49, 0x46}},
@@ -156,6 +162,79 @@ static void oled_write_line(int page, const char *text)
     }
 }
 
+static void oled_write_separator(int page)
+{
+    uint8_t line[OLED_WIDTH] = {0};
+    for (int i = 0; i < OLED_WIDTH; i += 2) {
+        line[i] = 0x08;
+    }
+
+    if (oled_set_cursor(page, 0) == ESP_OK) {
+        oled_write(0x40, line, sizeof(line));
+    }
+}
+
+static void oled_write_centered(int page, const char *text)
+{
+    size_t len = strlen(text);
+    int text_width = (int)len * 6;
+    int start_col = text_width < OLED_WIDTH ? (OLED_WIDTH - text_width) / 2 : 0;
+    uint8_t line[OLED_WIDTH] = {0};
+    int col = start_col;
+
+    while (*text != '\0' && col + 6 <= OLED_WIDTH) {
+        const uint8_t *glyph = font_for_char(*text);
+        for (int i = 0; i < 5; i++) {
+            line[col++] = glyph[i];
+        }
+        line[col++] = 0x00;
+        text++;
+    }
+
+    if (oled_set_cursor(page, 0) == ESP_OK) {
+        oled_write(0x40, line, sizeof(line));
+    }
+}
+
+static void oled_write_status_screen(bool wifi_ok, bool internet_ok, bool rebooting)
+{
+    char ip[16] = {0};
+    char ssid[33] = {0};
+    int rssi = 0;
+    wifi_manager_get_status(ssid, sizeof(ssid), ip, sizeof(ip), &rssi);
+
+    oled_write_line(0, rebooting ? "MODEM: RESET" : "MODEM: ON");
+    oled_write_separator(1);
+    oled_write_line(2, wifi_ok ? "WIFI: OK" : "WIFI: FAIL");
+    oled_write_separator(3);
+    oled_write_line(4, internet_ok ? "INTERNET: OK" : "INTERNET: FAIL");
+    oled_write_separator(5);
+    oled_write_line(6, APP_TEST_MODE ? "MODO: TEST" : "MODO: LIVE");
+
+    char ip_line[22] = {0};
+    snprintf(ip_line, sizeof(ip_line), "IP: %s", ip[0] != '\0' ? ip : "0.0.0.0");
+    oled_write_line(7, ip_line);
+}
+
+static void oled_write_dog_frame(bool tail_up)
+{
+    oled_clear();
+    oled_write_centered(0, "PERRO GUARDIAN");
+    oled_write_centered(1, "VIGILANDO WIFI");
+
+    if (tail_up) {
+        oled_write_centered(3, "     /");
+        oled_write_centered(4, " ___/___");
+    } else {
+        oled_write_centered(3, "      \\");
+        oled_write_centered(4, " ___   \\");
+    }
+
+    oled_write_centered(5, "/ O  O \\___");
+    oled_write_centered(6, "\\__^__/   )");
+    oled_write_centered(7, "  U  U---U");
+}
+
 static esp_err_t oled_init_at_address(uint8_t address)
 {
     s_oled_address = address;
@@ -200,19 +279,28 @@ static esp_err_t oled_hw_init(void)
 static void oled_task(void *arg)
 {
     (void)arg;
+    TickType_t last_dog = xTaskGetTickCount();
+    bool dog_tail_up = false;
 
     while (true) {
+        TickType_t now = xTaskGetTickCount();
+        if ((now - last_dog) >= pdMS_TO_TICKS(OLED_DOG_INTERVAL_MS)) {
+            TickType_t dog_until = now + pdMS_TO_TICKS(OLED_DOG_DURATION_MS);
+            while (xTaskGetTickCount() < dog_until) {
+                oled_write_dog_frame(dog_tail_up);
+                dog_tail_up = !dog_tail_up;
+                vTaskDelay(pdMS_TO_TICKS(450));
+            }
+            oled_clear();
+            last_dog = xTaskGetTickCount();
+        }
+
         EventBits_t bits = app_state_event_group() != NULL ? xEventGroupGetBits(app_state_event_group()) : 0;
         bool wifi_ok = (bits & APP_STATE_WIFI_CONNECTED_BIT) != 0;
         bool internet_ok = (bits & APP_STATE_INTERNET_OK_BIT) != 0;
-        bool cooldown = (bits & APP_STATE_COOLDOWN_BIT) != 0;
         bool rebooting = (bits & APP_STATE_ROUTER_REBOOTING_BIT) != 0;
 
-        oled_write_line(0, "ROUTER WATCHDOG");
-        oled_write_line(2, wifi_ok ? "WIFI: OK" : "WIFI: FAIL");
-        oled_write_line(3, internet_ok ? "NET : OK" : "NET : FAIL");
-        oled_write_line(4, rebooting ? "ROUTER: RESET" : "ROUTER: ON");
-        oled_write_line(5, cooldown ? "MODE: COOLDOWN" : (APP_TEST_MODE ? "MODE: TEST" : "MODE: LIVE"));
+        oled_write_status_screen(wifi_ok, internet_ok, rebooting);
 
         vTaskDelay(pdMS_TO_TICKS(OLED_UPDATE_MS));
     }

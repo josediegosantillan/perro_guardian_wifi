@@ -1,5 +1,7 @@
 #include "router_watchdog.h"
 
+#include <string.h>
+
 #include "esp_log.h"
 #include "esp_task_wdt.h"
 #include "nvs.h"
@@ -20,6 +22,7 @@
 #define WATCHDOG_STATS_LAST_REASON_KEY "last_reason"
 
 static const char *TAG = "router_watchdog";
+static volatile int s_consecutive_failures;
 
 static void stats_increment_u32(const char *key)
 {
@@ -168,14 +171,17 @@ static void watchdog_task(void *arg)
 
         if (!wait_wifi_connected(APP_WIFI_CONNECT_TIMEOUT_MS)) {
             failures++;
+            s_consecutive_failures = failures;
             last_failure_reason = "wifi_local";
             ESP_LOGW(TAG, "WiFi no conectado (%d/%d)", failures, APP_WATCHDOG_MAX_FAILURES);
         } else if (!internet_check_is_online()) {
             failures++;
+            s_consecutive_failures = failures;
             last_failure_reason = "internet";
             ESP_LOGW(TAG, "Internet caido (%d/%d)", failures, APP_WATCHDOG_MAX_FAILURES);
         } else {
             failures = 0;
+            s_consecutive_failures = failures;
             last_failure_reason = "sin_fallo";
         }
 
@@ -224,6 +230,7 @@ static void watchdog_task(void *arg)
                 stats_record_power_cycle(last_failure_reason);
             }
             failures = 0;
+            s_consecutive_failures = failures;
             /* La relay_task fija ROUTER_REBOOTING_BIT; el proximo ciclo esperara a que termine. */
             watchdog_delay(APP_WATCHDOG_CHECK_INTERVAL_MS);
         } else {
@@ -242,4 +249,65 @@ void router_watchdog_run(void)
     if (created != pdPASS) {
         ESP_LOGE(TAG, "No se pudo crear watchdog_task");
     }
+}
+
+static uint32_t stats_get_u32(nvs_handle_t handle, const char *key)
+{
+    uint32_t value = 0;
+    esp_err_t err = nvs_get_u32(handle, key, &value);
+    if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) {
+        ESP_LOGW(TAG, "No se pudo leer metrica %s: %s", key, esp_err_to_name(err));
+    }
+    return value;
+}
+
+esp_err_t router_watchdog_get_status(router_watchdog_status_t *status)
+{
+    if (status == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    memset(status, 0, sizeof(*status));
+    status->consecutive_failures = s_consecutive_failures;
+    strlcpy(status->last_reason, "sin_datos", sizeof(status->last_reason));
+
+    nvs_handle_t handle;
+    esp_err_t err = nvs_open(WATCHDOG_STATS_NAMESPACE, NVS_READONLY, &handle);
+    if (err == ESP_ERR_NVS_NOT_FOUND) {
+        return ESP_OK;
+    }
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    status->total_reboots = stats_get_u32(handle, WATCHDOG_STATS_TOTAL_REBOOTS_KEY);
+    status->limit_hits = stats_get_u32(handle, WATCHDOG_STATS_LIMIT_HITS_KEY);
+
+    size_t reason_len = sizeof(status->last_reason);
+    err = nvs_get_str(handle, WATCHDOG_STATS_LAST_REASON_KEY, status->last_reason, &reason_len);
+    if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) {
+        ESP_LOGW(TAG, "No se pudo leer ultimo motivo: %s", esp_err_to_name(err));
+    }
+
+    nvs_close(handle);
+    return ESP_OK;
+}
+
+esp_err_t router_watchdog_clear_stats(void)
+{
+    nvs_handle_t handle;
+    esp_err_t err = nvs_open(WATCHDOG_STATS_NAMESPACE, NVS_READWRITE, &handle);
+    if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) {
+        return err;
+    }
+    if (err == ESP_ERR_NVS_NOT_FOUND) {
+        return ESP_OK;
+    }
+
+    err = nvs_erase_all(handle);
+    if (err == ESP_OK) {
+        err = nvs_commit(handle);
+    }
+    nvs_close(handle);
+    return err;
 }

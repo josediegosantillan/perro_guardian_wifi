@@ -14,6 +14,8 @@
 #include "relay_control.h"
 #include "router_watchdog.h"
 #include "status_leds.h"
+#include "telegram_bot.h"
+#include "web_server.h"
 #include "wifi_config_portal.h"
 #include "wifi_manager.h"
 
@@ -102,5 +104,7 @@ void app_main(void)
     }
 
     ESP_ERROR_CHECK(button_control_init());
+    ESP_ERROR_CHECK(web_server_start());
+    ESP_ERROR_CHECK(telegram_bot_init());
     router_watchdog_run();
 }

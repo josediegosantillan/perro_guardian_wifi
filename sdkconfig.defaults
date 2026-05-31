@@ -3,6 +3,8 @@ CONFIG_IDF_TARGET="esp32"
 CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
 CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
 CONFIG_SPI_FLASH_SUPPORT_BOYA_CHIP=y
+CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
+CONFIG_PARTITION_TABLE_FILENAME="partitions_singleapp_large.csv"
 
 # Task Watchdog Timer: vigila que las tareas criticas sigan vivas.
 # Si una tarea suscrita deja de alimentar el TWDT, el ESP se reinicia y el
