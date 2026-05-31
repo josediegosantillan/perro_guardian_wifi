@@ -1,0 +1,23 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "ESP32-C3 OpenOCD (JTAG)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/perro_guardian_wifi.elf",
+            "miDebuggerPath": "C:/Espressif/tools/riscv32-esp-elf-gdb/16.3_20250913/riscv32-esp-elf-gdb/bin/riscv32-esp-elf-gdb.exe",
+            "miDebuggerServerAddress": "localhost:3333",
+            "stopAtEntry": true,
+            "cwd": "${workspaceFolder}",
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                { "text": "target remote localhost:3333" },
+                { "text": "monitor reset halt" },
+                { "text": "thb app_main" },
+                { "text": "continue" }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,10 @@
+# Artefactos de compilacion ESP-IDF
+/build/
+
+# Configuracion local generada (mantener sdkconfig.defaults versionado)
+/sdkconfig
+/sdkconfig.old
+
+# Archivos de editor / SO
+*.swp
+.DS_Store

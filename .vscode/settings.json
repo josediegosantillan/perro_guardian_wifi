@@ -1,0 +1,23 @@
+{
+    "idf.espIdfPath": "C:\\esp\\v5.5.4\\esp-idf",
+    "idf.toolsPath": "C:\\Espressif",
+    "idf.pythonBinPath": "C:\\Espressif\\python_env\\idf5.5_py3.11_env\\Scripts\\python.exe",
+    "idf.customExtraPaths": "",
+    "idf.adapterTargetName": "esp32c3",
+    "idf.port": "",
+    "C_Cpp.intelliSenseEngine": "Tag Parser",
+    "C_Cpp.default.compilerPath": "C:\\Espressif\\tools\\riscv32-esp-elf\\esp-14.2.0_20260121\\riscv32-esp-elf\\bin\\riscv32-esp-elf-gcc.exe",
+    "C_Cpp.default.includePath": [
+        "${workspaceFolder}/**",
+        "C:/esp/v5.5.4/esp-idf/components/**"
+    ],
+    "C_Cpp.default.defines": [
+        "IDF_VER=\"v5.5.4\"",
+        "ESP_PLATFORM",
+        "CONFIG_IDF_TARGET_ESP32C3=1"
+    ],
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
+    "idf.currentSetup": "C:\\esp\\v5.5.4\\esp-idf",
+    "idf.portWin": "COM4",
+    "idf.flashType": "UART"
+}

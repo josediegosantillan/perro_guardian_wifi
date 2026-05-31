@@ -1,0 +1,198 @@
+menu "Router Watchdog"
+
+    config ROUTER_WATCHDOG_WIFI_SSID
+        string "WiFi SSID"
+        default "CAMBIAR_SSID"
+        help
+            Nombre de la red WiFi a vigilar.
+
+    config ROUTER_WATCHDOG_WIFI_PASSWORD
+        string "WiFi password"
+        default "CAMBIAR_PASSWORD"
+        help
+            Password de la red WiFi.
+
+    config ROUTER_WATCHDOG_RELAY_GPIO
+        int "GPIO del rele"
+        range 0 39
+        default 26
+        help
+            GPIO del ESP32 DevKit conectado a la entrada de control del rele.
+            Default: GPIO26, una salida segura en placas ESP32 DevKit comunes.
+
+    config ROUTER_WATCHDOG_RELAY_ACTIVE_LEVEL
+        int "Nivel activo del rele"
+        range 0 1
+        default 1
+        help
+            Usar 1 si el modulo de rele se activa con nivel alto, 0 si se activa con nivel bajo.
+
+    config ROUTER_WATCHDOG_TEST_MODE
+        bool "Modo prueba (no acciona el rele fisicamente)"
+        default y
+        help
+            Si esta activo, el firmware ejecuta toda la logica de fallos, cooldown y
+            contadores pero NO acciona fisicamente el rele: solo lo registra en los logs.
+            Mantenerlo activo hasta validar el comportamiento antes de conectar el router real.
+
+    config ROUTER_WATCHDOG_WIFI_CONNECT_TIMEOUT_MS
+        int "Timeout de conexion WiFi (ms)"
+        range 1000 300000
+        default 20000
+
+    config ROUTER_WATCHDOG_MANUAL_RESET_BUTTON_GPIO
+        int "GPIO del boton de reset manual del router (-1 deshabilitado)"
+        range -1 39
+        default 32
+        help
+            Boton para solicitar manualmente un power-cycle del router. Default: GPIO32
+            con pulsador a GND y pull-up interno.
+
+    config ROUTER_WATCHDOG_MANUAL_RESET_BUTTON_ACTIVE_LEVEL
+        int "Nivel activo del boton de reset manual"
+        range 0 1
+        default 0
+
+    config ROUTER_WATCHDOG_FORCE_PORTAL_GPIO
+        int "GPIO para forzar portal WiFi al arrancar (-1 deshabilitado)"
+        range -1 39
+        default 33
+        help
+            Boton para entrar al portal WiFi. Default: GPIO33 con pulsador a GND y
+            pull-up interno. Si se mantiene presionado al arrancar entra directo al portal.
+            Si se mantiene presionado durante funcionamiento, programa portal y reinicia.
+
+    config ROUTER_WATCHDOG_FORCE_PORTAL_ACTIVE_LEVEL
+        int "Nivel activo del GPIO de portal"
+        range 0 1
+        default 0
+        help
+            Usar 0 para un pulsador a GND con pull-up interno; usar 1 si el
+            circuito externo entrega nivel alto al activar.
+
+    config ROUTER_WATCHDOG_STATUS_LED_WIFI_GPIO
+        int "GPIO LED estado WiFi (-1 deshabilitado)"
+        range -1 39
+        default 16
+
+    config ROUTER_WATCHDOG_STATUS_LED_INTERNET_GPIO
+        int "GPIO LED estado Internet (-1 deshabilitado)"
+        range -1 39
+        default 17
+
+    config ROUTER_WATCHDOG_STATUS_LED_ALERT_GPIO
+        int "GPIO LED alerta/reinicio/cooldown (-1 deshabilitado)"
+        range -1 39
+        default 27
+
+    config ROUTER_WATCHDOG_STATUS_LED_ACTIVE_LEVEL
+        int "Nivel activo de los LEDs de estado"
+        range 0 1
+        default 1
+
+    config ROUTER_WATCHDOG_OLED_ENABLED
+        bool "Pantalla OLED I2C 1.3 pulgadas"
+        default y
+        help
+            Habilita una OLED I2C 128x64. La placa de la foto indica address select
+            0x78/0x7A, que normalmente corresponde a direcciones I2C de 7 bits
+            0x3C/0x3D. Default: 0x3C.
+
+    config ROUTER_WATCHDOG_OLED_SDA_GPIO
+        int "GPIO SDA OLED I2C"
+        range 0 39
+        default 21
+
+    config ROUTER_WATCHDOG_OLED_SCL_GPIO
+        int "GPIO SCL OLED I2C"
+        range 0 39
+        default 22
+
+    config ROUTER_WATCHDOG_OLED_I2C_ADDRESS
+        hex "Direccion I2C OLED (7 bits)"
+        range 0x03 0x77
+        default 0x3C
+
+    config ROUTER_WATCHDOG_OLED_COLUMN_OFFSET
+        int "Offset de columna OLED"
+        range 0 4
+        default 2
+        help
+            Muchas OLED 1.3 pulgadas usan controlador SH1106 y requieren offset 2.
+            Para SSD1306 puro usar 0.
+
+    config ROUTER_WATCHDOG_INTERNET_CHECK_URL_1
+        string "URL de chequeo principal (HTTP GET)"
+        default "http://clients3.google.com/generate_204"
+        help
+            Endpoint que devuelve 204/200 con poca latencia. Se considera internet OK si responde.
+
+    config ROUTER_WATCHDOG_INTERNET_CHECK_URL_2
+        string "URL de chequeo secundario (HTTP GET)"
+        default "http://cp.cloudflare.com/generate_204"
+        help
+            Segundo endpoint. Solo se reporta fallo de internet si fallan ambos.
+
+    config ROUTER_WATCHDOG_INTERNET_CHECK_TIMEOUT_MS
+        int "Timeout de cada chequeo HTTP (ms)"
+        range 500 60000
+        default 5000
+
+    config ROUTER_WATCHDOG_STARTUP_GRACE_MS
+        int "Espera inicial antes de vigilar (ms)"
+        range 0 300000
+        default 5000
+        help
+            Pausa inicial para dejar el rele en estado seguro antes de empezar los chequeos.
+
+    config ROUTER_WATCHDOG_CHECK_INTERVAL_MS
+        int "Intervalo entre chequeos (ms)"
+        range 1000 3600000
+        default 30000
+
+    config ROUTER_WATCHDOG_MAX_FAILURES
+        int "Fallos consecutivos antes de reiniciar"
+        range 1 100
+        default 3
+
+    config ROUTER_WATCHDOG_ROUTER_POWER_OFF_MS
+        int "Tiempo de apagado del router (ms)"
+        range 1000 300000
+        default 10000
+
+    config ROUTER_WATCHDOG_ROUTER_BOOT_WAIT_MS
+        int "Espera despues de encender router (ms)"
+        range 1000 1800000
+        default 180000
+
+    config ROUTER_WATCHDOG_POWER_CYCLE_MAX_PER_WINDOW
+        int "Maximo de reinicios por ventana"
+        range 1 100
+        default 3
+        help
+            Limita reinicios repetidos para no castigar el router si la falla es persistente.
+
+    config ROUTER_WATCHDOG_POWER_CYCLE_WINDOW_MS
+        int "Ventana para limitar reinicios (ms)"
+        range 60000 86400000
+        default 3600000
+        help
+            Ventana de tiempo para contar reinicios. Por defecto: 1 hora.
+
+    config ROUTER_WATCHDOG_COOLDOWN_AFTER_LIMIT_MS
+        int "Cooldown al alcanzar el limite de reinicios (ms)"
+        range 60000 86400000
+        default 1800000
+        help
+            Tiempo minimo sin reiniciar fisicamente el router despues de alcanzar
+            el limite de reinicios. Por defecto: 30 minutos.
+
+    config ROUTER_WATCHDOG_STRICT_HTTP_204
+        bool "Chequeo HTTP estricto con codigo 204"
+        default y
+        help
+            Si esta activo, solo HTTP 204 se considera internet OK. Esto reduce
+            falsos positivos con portales cautivos o redirecciones. Si se desactiva,
+            cualquier respuesta 2xx cuenta como online.
+
+endmenu
