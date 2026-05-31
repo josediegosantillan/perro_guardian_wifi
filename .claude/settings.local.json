@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "PowerShell(. 'C:\\\\esp\\\\v5.5.4\\\\esp-idf\\\\export.ps1')",
-      "PowerShell(idf.py build)"
+      "PowerShell(idf.py build)",
+      "Bash(Get-ChildItem -Path \"c:\\\\ESP32_PROYECTOS\\\\perro_guardian_wifi\" -Recurse -Force)",
+      "Bash(Select-Object -Property FullName, PSIsContainer)",
+      "Bash(Sort-Object FullName)",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\ESP32_PROYECTOS\\\\perro_guardian_wifi\" -File -Recurse | Where-Object { $_.Extension -match '\\\\.\\(c|h|cpp|html|css|js|md\\)$' } | Select-Object -Property FullName | Sort-Object)"
     ]
   }
 }
