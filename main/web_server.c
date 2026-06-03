@@ -26,9 +26,24 @@
 
 #define WEB_JSON_MAX 768
 #define WEB_WIFI_SCAN_MAX 12
+#define WEB_TELEGRAM_TEST_TASK_STACK 8192
+#define WEB_TELEGRAM_TEST_TASK_PRIORITY 3
 
 static const char *TAG = "web_server";
 static httpd_handle_t s_server;
+
+static void telegram_test_task(void *arg)
+{
+    char *message = (char *)arg;
+    esp_err_t err = telegram_bot_send_test_message(message != NULL ? message : "Prueba desde PERRO_GUARDIAN_WIFI");
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "Telegram test enviado correctamente");
+    } else {
+        ESP_LOGE(TAG, "Telegram test fallo: %s", esp_err_to_name(err));
+    }
+    free(message);
+    vTaskDelete(NULL);
+}
 
 static const char INDEX_HTML[] =
 "<!doctype html><html lang='es'><head><meta name='viewport' content='width=device-width,initial-scale=1'>"
@@ -138,7 +153,7 @@ static const char INDEX_HTML[] =
 "document.querySelector('.tabs button').classList.add('active');"
 "function toast(m,t=''){let e=document.getElementById('_t')||document.body.appendChild(Object.assign(document.createElement('div'),{id:'_t'}));e.className='toast '+t;e.textContent=m;e.style.display='block';clearTimeout(window._tt);window._tt=setTimeout(()=>e.style.display='none',2800)}"
 "async function busy(lbl,fn,btn){let bs=[...document.querySelectorAll('button')];if(btn)btn.classList.add('pressed','working');bs.forEach(b=>b.disabled=true);toast(lbl||'...');try{let r=await fn();toast('Listo ✓','okt');return r}catch(e){toast(e.message||'Error','err');throw e}finally{bs.forEach(b=>b.disabled=false);if(btn)btn.classList.remove('pressed','working')}}"
-"async function api(path,opt={}){let c=new AbortController(),t=setTimeout(()=>c.abort(),8000);try{let r=await fetch(path,{...opt,signal:c.signal,headers:{'Content-Type':'application/json',...(opt.headers||{})}});let tx=await r.text(),j=tx?JSON.parse(tx):{};if(!r.ok)throw Error(j.message||r.statusText);return j}finally{clearTimeout(t)}}"
+"async function api(path,opt={}){let timeout=opt.timeoutMs||12000;delete opt.timeoutMs;let c=new AbortController(),t=setTimeout(()=>c.abort('timeout'),timeout);try{let r=await fetch(path,{...opt,signal:c.signal,headers:{'Content-Type':'application/json',...(opt.headers||{})}});let tx=await r.text(),j=tx?JSON.parse(tx):{};if(!r.ok)throw Error(j.message||r.statusText);return j}catch(e){if(e.name==='AbortError'||e==='timeout')throw Error('Timeout: el ESP32 no respondio a tiempo. Revisar internet/DNS/Telegram.');throw e}finally{clearTimeout(t)}}"
 "function fmt_up(s){let h=Math.floor(s/3600),m=Math.floor(s%3600/60),sc=s%60;return h?`${h}h ${m}m`:`${m}m ${sc}s`}"
 "function sig_html(rssi){let n=rssi>-55?4:rssi>-65?3:rssi>-75?2:1;return `<span class='sig'>${[1,2,3,4].map(i=>`<span class='sb${i<=n?' on':''}' style='height:${i*3+2}px'></span>`).join('')}</span>`}"
 "function card(ico,lbl,val,cls=''){return `<div class='card ${cls}'><div class='ci'>${ico}</div><div class='cv'>${val}</div><div class='cl'>${lbl}</div></div>`}"
@@ -176,7 +191,7 @@ static const char INDEX_HTML[] =
 "async function saveWifi(ev){try{let r=await busy('Guardando WiFi...',()=>api('/api/wifi/credentials',{method:'POST',body:JSON.stringify({ssid:wifiSsid.value,password:wifiPass.value})}),ev&&ev.target);alert(r.message)}catch(e){alert(e.message)}}"
 "async function loadTelegram(ev){try{await busy('Leyendo Telegram...',async()=>{let t=await api('/api/telegram/config');tgEnabled.checked=t.enabled;tgChat.value=t.chatId||'';tgToken.value='';tgNet.checked=t.notifyOnInternetFail;tgReset.checked=t.notifyOnRouterReset;tgCooldown.checked=t.notifyOnCooldown;tgCommands.checked=t.allowCommands},ev&&ev.target)}catch(e){alert(e.message)}}"
 "async function saveTelegram(ev){if(tgCommands.checked&&!confirm('Los comandos permiten reiniciar el router. Continuar?'))return;let b={enabled:tgEnabled.checked,botToken:tgToken.value,chatId:tgChat.value,notifyOnInternetFail:tgNet.checked,notifyOnRouterReset:tgReset.checked,notifyOnCooldown:tgCooldown.checked,allowCommands:tgCommands.checked};try{let r=await busy('Guardando Telegram...',()=>api('/api/telegram/config',{method:'POST',body:JSON.stringify(b)}),ev&&ev.target);alert(r.message)}catch(e){alert(e.message)}}"
-"async function testTelegram(ev){try{let r=await busy('Enviando prueba...',()=>api('/api/telegram/test',{method:'POST',body:JSON.stringify({message:'Prueba desde Perro Guardian WiFi'})}),ev&&ev.target);alert(r.message)}catch(e){alert(e.message)}}"
+"async function testTelegram(ev){try{let r=await busy('Enviando prueba...',()=>api('/api/telegram/test',{method:'POST',body:JSON.stringify({message:'Prueba desde Perro Guardian WiFi'}),timeoutMs:18000}),ev&&ev.target);alert(r.message)}catch(e){alert(e.message)}}"
 "async function loadLogs(ev){try{await busy('Actualizando logs...',async()=>{let l=await api('/api/logs');logBox.textContent=l.logs.map(x=>`[${x.timeSec}s] ${x.level} ${x.tag}: ${x.message}`).join('\\n')},ev&&ev.target)}catch(e){logBox.textContent=e.message}}"
 "loadStatus();stateTimer=setInterval(loadStatus,3000);"
 "</script></body></html>";
@@ -546,12 +561,46 @@ static esp_err_t telegram_test_post_handler(httpd_req_t *req)
     if (read_body(req, body, sizeof(body)) == ESP_OK) {
         json_get_string(body, "message", message, sizeof(message));
     }
-    esp_err_t err = telegram_bot_send_test_message(message);
-    if (err != ESP_OK) {
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, esp_err_to_name(err));
-        return err;
+
+    telegram_bot_config_t config;
+    telegram_bot_get_config(&config);
+    if (!config.enabled) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Telegram esta deshabilitado");
+        return ESP_FAIL;
     }
-    return send_json(req, "{\"ok\":true,\"message\":\"Mensaje enviado\"}");
+    if (!config.bot_token_configured) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Falta guardar el Bot Token");
+        return ESP_FAIL;
+    }
+    if (config.chat_id[0] == '\0') {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Falta guardar el Chat ID");
+        return ESP_FAIL;
+    }
+    if (!wifi_manager_is_connected()) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "El ESP32 no esta conectado al WiFi");
+        return ESP_FAIL;
+    }
+
+    char *task_message = strdup(message);
+    if (task_message == NULL) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Sin memoria para enviar prueba");
+        return ESP_ERR_NO_MEM;
+    }
+
+    BaseType_t ok = xTaskCreate(
+        telegram_test_task,
+        "telegram_test",
+        WEB_TELEGRAM_TEST_TASK_STACK,
+        task_message,
+        WEB_TELEGRAM_TEST_TASK_PRIORITY,
+        NULL);
+    if (ok != pdPASS) {
+        free(task_message);
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "No se pudo crear tarea Telegram");
+        return ESP_ERR_NO_MEM;
+    }
+
+    return send_json(req, "{\"ok\":true,\"message\":\"Prueba Telegram enviada en segundo plano. Revisar Telegram y monitor serie.\"}");
 }
 
 static esp_err_t register_uri(httpd_handle_t server, const char *uri, httpd_method_t method, esp_err_t (*handler)(httpd_req_t *))

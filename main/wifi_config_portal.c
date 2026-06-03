@@ -205,7 +205,5 @@ esp_err_t wifi_config_portal_run(void)
     ESP_LOGW(TAG, "Conectate a WiFi '%s' con password '%s'", PORTAL_AP_SSID, PORTAL_AP_PASSWORD);
     ESP_LOGW(TAG, "El celular deberia abrir el navegador automaticamente. URL manual: http://%s", PORTAL_AP_IP);
 
-    while (true) {
-        vTaskDelay(pdMS_TO_TICKS(60000));
-    }
+    return ESP_OK;
 }

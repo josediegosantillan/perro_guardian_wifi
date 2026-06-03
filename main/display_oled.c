@@ -349,17 +349,21 @@ static void oled_draw_dog(int frame)
     fb_ellipse(64, 37, 27, 20);   /* double outline for thickness */
 
     /* ── left ear ─────────────────────────────────────────────────── */
-    fb_line(36, 25, 22, 2);
-    fb_line(22, 2, 46, 14);
-    fb_line(46, 14, 40, 23);
+    fb_line(36, 25, 22, 5);     /* outer edge */
+    fb_line(22, 5, 46, 14);     /* inner edge */
+    fb_line(46, 14, 40, 23);    /* base */
+    /* natural rounded tip: 3-pixel arc just above the convergence point */
+    fb_pixel(21, 4); fb_pixel(22, 3); fb_pixel(23, 4);
     /* inner fur */
     fb_line(38, 23, 28, 8);
     fb_line(28, 8, 42, 16);
 
     /* ── right ear ────────────────────────────────────────────────── */
-    fb_line(92, 25, 106, 2);
-    fb_line(106, 2, 82, 14);
-    fb_line(82, 14, 88, 23);
+    fb_line(92, 25, 106, 5);    /* outer edge */
+    fb_line(106, 5, 82, 14);    /* inner edge */
+    fb_line(82, 14, 88, 23);    /* base */
+    /* natural rounded tip */
+    fb_pixel(105, 4); fb_pixel(106, 3); fb_pixel(107, 4);
     /* inner fur */
     fb_line(90, 23, 100, 8);
     fb_line(100, 8, 86, 16);
